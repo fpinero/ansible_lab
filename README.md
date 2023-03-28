@@ -38,3 +38,15 @@ mismo comando para obtener información de un target en concreto
 ansible all -m gather_facts --limit ansible@192.168.1.180
 ````
 
+comando para ejecutar una operación en los targets que necesita de sudo y su contraseña
+
+````
+ansible all -m apt -a update_cache=true --become --ask-become-pass
+````
+
+comando para instalar un paquete en los servidores (aunque en local te exige presionar Y, con ansible no lo hace)
+
+````
+ansible all -m apt -a name=screenfetch --become --ask-become-pass
+````
+
