@@ -50,3 +50,44 @@ comando para instalar un paquete en los servidores (aunque en local te exige pre
 ansible all -m apt -a name=screenfetch --become --ask-become-pass
 ````
 
+Install a package via the apt module, and also make sure it’s the latest version available (similar a apt update)
+
+````
+ansible all -m apt -a "name=snapd state=latest" --become --ask-become-pass
+````
+
+Upgrade all the package updates that are available
+
+````
+ansible all -m apt -a upgrade=dist --become --ask-become-pass
+````
+
+ejecutando el playbook install_apache.yaml
+````
+ansible-playbook --ask-become-pass install_apache.yml
+````
+
+ejecutando la v2 del playbook install_apavhe_v2.yaml que añade un paso extra antes de instalar apache que es el de actualizar los repositorios
+
+````
+ansible-playbook --ask-become-pass install_apache_v2.yml
+````
+
+ejecutando la versión 3 de install_apache_v3.yaml que añade soporte php a apache
+
+````
+ansible-playbook --ask-become-pass install_apache_v3.yml
+````
+
+ejecutando la versión 4 de install_apache_v4.yaml que fuerza a que la versón a instalar sea la más reciente, en este caso si el paquete está instalado pero hay una versión más actual, lo actualiza.
+
+````
+ansible-playbook --ask-become-pass install_apache_v4.yml
+````
+
+playbook que elimnia apache de los targets
+
+````
+ansible-playbook --ask-become-pass revome_apache.yaml
+````
+
