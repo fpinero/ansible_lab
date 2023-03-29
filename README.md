@@ -91,3 +91,105 @@ playbook que elimnia apache de los targets
 ansible-playbook --ask-become-pass revome_apache.yaml
 ````
 
+playbook install_apache_v5.yaml contiene una condición para que sólo haga el apt install apache2 si el target está corriendo Ubuntu
+
+````
+sts: all
+   become: true
+   tasks:
+ 
+   - name: update repository index
+     apt:
+       update_cache: yes
+     when: ansible_distribution == "Ubuntu"
+ 
+   - name: install apache2 package
+     apt:
+       name: apache2
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+   - name: add php support for apache
+     apt:
+       name: libapache2-mod-php
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+````
+
+playbook install_apache_v6.yaml que actualiza no sólo Ubuntu, sino cualquier distribución que esté basada en Debian, (que su gestor de paquetes sea apt)
+
+````
+sts: all
+  become: true
+  tasks:
+
+  - name : update repository index
+    apt:
+      update_cache: yes
+    when: ansible_distribution in ["Debian", "Ubuntu"]
+
+  - name: install apache2 package
+    apt:
+      name: apache2
+    when: ansible_distribution in ["Debian", "Ubuntu"]
+
+  - name: add php support for apache
+    apt:
+      name: libapache2-mod-php
+    when: ansible_distribution in ["Debian", "Ubuntu"]
+
+````
+
+comando para obtener la distribución que está usando el target que le especifiquemos
+
+````
+ansible all -m gather_facts --limit ansible@192.168.1.180 | grep ansible_distribution
+````
+playbook install_apache_Ubuntu_Fedora.yaml que instala apache en los servidores Ubuntu y Fedora
+
+````
+- hosts: all
+  become: true
+  tasks:
+ 
+  - name: update repository index
+    apt:
+      update_cache: yes
+    when: ansible_distribution == "Ubuntu"
+ 
+  - name: install apache2 package
+    apt:
+      name: apache2
+      state: latest
+    when: ansible_distribution == "Ubuntu"
+ 
+  - name: add php support for apache
+    apt:
+      name: libapache2-mod-php
+      state: latest
+    when: ansible_distribution == "Ubuntu"
+ 
+  - name: update repository index
+    dnf:
+      update_cache: yes
+    when: ansible_distribution == "Fedora"
+ 
+  - name: install httpd package
+    dnf:
+      name: httpd
+      state: latest
+    when: ansible_distribution == "Fedora"
+ 
+   - name: add php support for apache
+    dnf:
+      name: php
+      state: latest
+    when: ansible_distribution == "Fedora"
+````
+
+````
+ansible-playbook --ask-become-pass install_apache_Ubuntu_Fedora.yml
+````
+
+
+
