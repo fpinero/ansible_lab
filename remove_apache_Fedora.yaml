@@ -5,15 +5,15 @@
   tasks:
 
   - name: remove apache2 package
-    apt:
-      name: apache2
+    dnf:
+      name: httpd
       state: absent
-    when: ansible_distribution == "Ubuntu"
+    when: ansible_distribution == "Fedora"
 
   - name: remove php support for apache
-    apt:
-      name: libapache2-mod-php
+    dnf:
+      name: php
       state: absent
-    when: ansible_distribution == "Ubuntu"
+    when: ansible_distribution == "Fedora"
 
 

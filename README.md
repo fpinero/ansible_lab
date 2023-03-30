@@ -191,5 +191,133 @@ playbook install_apache_Ubuntu_Fedora.yaml que instala apache en los servidores 
 ansible-playbook --ask-become-pass install_apache_Ubuntu_Fedora.yml
 ````
 
+modificado playbook remove_apache.yaml para que sólo afecte a los targets Ubuntu
 
+````
+- hosts: all
+  become: true
+  tasks:
+
+  - name: remove apache2 package
+    apt:
+      name: apache2
+      state: absent
+    when: ansible_distribution == "Ubuntu"
+
+  - name: remove php support for apache
+    apt:
+      name: libapache2-mod-php
+      state: absent
+    when: ansible_distribution == "Ubuntu"
+````
+
+añadido playbook remove_apache_Fedora.yaml para que sólo afecte a los target Fedora
+
+````
+- hosts: all
+  become: true
+  tasks:
+
+  - name: remove apache2 package
+    dnf:
+      name: httpd
+      state: absent
+    when: ansible_distribution == "Fedora"
+
+  - name: remove php support for apache
+    dnf:
+      name: php
+      state: absent
+    when: ansible_distribution == "Fedora"
+````
+
+añadido playbook install_apache_Ubuntu_Fedora_condensed.yaml que utiliza listas para instalar los paquetes en un sólo step en lugar de un stop por cada paquete que deseamos instalar en los targets
+
+````
+ - hosts: all
+   become: true
+   tasks:
+ 
+   - name: update repository index
+     apt:
+       update_cache: yes
+     when: ansible_distribution == "Ubuntu"
+ 
+   - name: install apache2 and php packages for Ubuntu
+     apt:
+       name:
+         - apache2
+         - libapache2-mod-php
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+   - name: update repository index
+     dnf:
+       update_cache: yes
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install apache and php packages for Fedora
+     dnf:
+       name:
+         - httpd
+         - php
+       state: latest
+     when: ansible_distribution == "Fedora"
+````
+
+añadido playbook install_apache_Ubuntu_Fedora_condensed_plus.yaml que condensa aún más el playbook para instalar apache y php en los targets pq se ha eliminado el step del apt update/dnf update añadiendo la instrucción update_cache: yes en los steps
+
+````
+- hosts: all
+   become: true
+   tasks:
+ 
+   - name: install apache2 package
+     apt:
+       name:
+         - apache2
+         - libapache2-mod-php
+       state: latest
+       update_cache: yes
+     when: ansible_distribution == "Ubuntu"
+ 
+   - name: install httpd package
+     dnf:
+       name:
+         - httpd
+         - php
+       state: latest
+       update_cache: yes
+     when: ansible_distribution == "Fedora"
+````
+
+añadido playbook que hace uso de variables para definir los paquetes a instalar en los targets
+
+````
+ - hosts: all
+   become: true
+   tasks:
+ 
+   - name: install apache and php
+     package:
+       name:
+         - {{ apache_package }}
+         - {{ php_package }}
+       state: latest
+       update_cache: yes
+
+````
+ 
+este playbook va acompañado de este invetory_with_package que es donde se definen los valores de las variables
+
+````
+ansible@192.168.1.180 apache_package=apache2 php_package=libapache2-mod-php
+ansible@192.168.1.86 apache_package=apache2 php_package=libapache2-mod-php
+ansible@192.168.1.184 apache_package=apache2 php_package=libapache2-mod-php
+ansible@192.168.1.189 apache_package=httpd php_package=php
+````
+
+````
+ansible-playbook -i inventory_with_package --ask-become-pass install_apache_Ubuntu_Fedora_condensed_plus+.yaml
+````
 
