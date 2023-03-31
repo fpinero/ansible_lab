@@ -88,7 +88,7 @@ ansible-playbook --ask-become-pass install_apache_v4.yml
 playbook que elimnia apache de los targets
 
 ````
-ansible-playbook --ask-become-pass revome_apache.yaml
+ansible-playbook --ask-become-pass remove_apache.yaml
 ````
 
 playbook install_apache_v5.yaml contiene una condición para que sólo haga el apt install apache2 si el target está corriendo Ubuntu
@@ -319,5 +319,275 @@ ansible@192.168.1.189 apache_package=httpd php_package=php
 
 ````
 ansible-playbook -i inventory_with_package --ask-become-pass install_apache_Ubuntu_Fedora_condensed_plus+.yaml
+````
+
+playbook install_apache_v7.yaml no condesando en un solo step, vuelve a tener dos steps, uno para los targets Ubuntu y otro para los Fedora
+
+````
+ ---
+ 
+ - hosts: all
+   become: true
+   tasks:
+ 
+   - name: install apache and php for Ubuntu servers
+     apt:
+       name:
+         - apache2
+         - libapache2-mod-php
+       state: latest
+       update_cache: yes
+     when: ansible_distribution == "Ubuntu"
+ 
+   - name: install apache and php for Fedora servers
+     dnf:
+       name:
+         - httpd
+         - php
+       state: latest
+       update_cache: yes
+     when: ansible_distribution == "Fedora"
+````
+
+añadido nuevo fichero inventory_withgroup, el objetivo es no instalar siempre lo mismo en todos los targets, estos grupos se llaman nodos y dependiendo del grupo al que pertenezca puedes especificar qué deseas instalar en ellos.s
+
+````
+[web_servers]
+ansible@192.168.1.180
+ansible@192.168.1.86
+
+[db_servers]
+ansible@192.168.1.184
+
+[file_servers]
+ansible@192.168.1.189
+````
+
+añadido playbook site.yaml que instala apahe y php en el grupo web_servers definido en inventory_with_groups
+
+````
+ - hosts: all
+   become: true
+   tasks:
+ 
+   - name: install updates (Fedora)
+     dnf:
+       update_only: yes
+       update_cache: yes
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install updates (Ubuntu)
+     apt:
+       upgrade: dist
+       update_cache: yes
+     when: ansible_distribution == "Ubuntu"
+ 
+ 
+ - hosts: web_servers
+   become: true
+   tasks:
+ 
+   - name: install apache and php for Ubuntu servers
+     apt:
+       name:
+         - apache2
+         - libapache2-mod-php
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+   - name: install apache and php for Fedora servers
+     dnf:
+       name:
+         - httpd
+         - php
+       state: latest
+     when: ansible_distribution == "Fedora"
+
+````
+
+hay que indicar el fichero nuevo inventory_with_groups pq por defecto utiliza el que está definido en ansible.cfg, el cual no tiene grupos definidos
+
+````
+ansible-playbook --ask-become-pass site.yaml -i inventory_with_groups
+````
+
+se añade el playbook site2.yaml que es básicamente igual al site.yaml salvo que por buenas prácticas las tareas que quieras que siempre se ejecuten antes que el resto deben estar bajo la etiqueta pre-tasks en lugar de task, en este caso, nos interesa que siempre realice el apt update o el dnf update como primer paso antes de instalar cualquier paquete q le indiquemos.
+
+````
+---
+ 
+ - hosts: all
+   become: true
+   pre_tasks:
+ 
+   - name: install updates (Fedora)
+     dnf:
+       update_only: yes
+       update_cache: yes
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install updates (Ubuntu)
+     apt:
+       upgrade: dist
+       update_cache: yes
+     when: ansible_distribution == "Ubuntu"
+ 
+ 
+ - hosts: web_servers
+   become: true
+   tasks:
+ 
+   - name: install apache2 package
+     apt:
+       name:
+         - apache2
+         - libapache2-mod-php
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+   - name: install httpd package
+     dnf:
+       name:
+         - httpd
+         - php
+       state: latest
+     when: ansible_distribution == "Fedora"
+````
+
+añadimos playbook site3.yaml donde se crean tareas para el gupo db_servers
+
+````
+ ---
+ 
+ - hosts: all
+   become: true
+   pre_tasks:
+ 
+   - name: install updates (Fedora)
+     dnf:
+       update_only: yes
+       update_cache: yes
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install updates (Ubuntu)
+     apt:
+       upgrade: dist
+       update_cache: yes
+    when: ansible_distribution == "Ubuntu"
+ 
+ 
+ - hosts: web_servers
+   become: true
+   tasks:
+ 
+   - name: install httpd package (Fedora)
+     dnf:
+       name:
+         - httpd
+         - php
+       state: latest
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install apache2 package (Ubuntu)
+     apt:
+       name:
+         - apache2
+         - libapache2-mod-php
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: db_servers
+   become: true
+   tasks:
+ 
+   - name: install httpd package (Fedora)
+     dnf:
+       name: mariadb
+       state: latest
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install mariadb server
+     apt:
+       name: mariadb-server
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+
+````
+
+````
+ansible-playbook --ask-become-pass site3.yaml -i inventory_with_groups
+````
+
+una forma de averiguar si mariadb se instaló en los servers del grupo db_servers es conectándote al servidor por ssh y ejecutando este comando:
+
+````
+systemctl status mariadb
+````
+
+añadido playbook site4.yaml que añade una task para instalar un servidor de archivos samba en el grupo de servidores file_servers
+
+````
+ - hosts: all
+   become: true
+   pre_tasks:
+ 
+   - name: install updates (Fedora)
+     dnf:
+       update_only: yes
+       update_cache: yes
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install updates (Ubuntu)
+     apt:
+       upgrade: dist
+       update_cache: yes
+     when: ansible_distribution == "Ubuntu"
+ 
+ 
+ - hosts: web_servers
+   become: true
+   tasks:
+ 
+   - name: install httpd package (Fedora)
+     dnf:
+       name:
+         - httpd
+         - php
+       state: latest
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install apache2 package (Ubuntu)
+     apt:
+       name:
+         - apache2
+         - libapache2-mod-php
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: db_servers
+   become: true
+   tasks:
+ 
+   - name: install mariadb server package (Fedora)
+     dnf:
+       name: mariadb
+       state: latest
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install mariadb server
+     apt:
+       name: mariadb-server
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: file_servers
+   become: true
+   tasks:
+ 
+   - name: install samba package
+     package:
+       name: samba
+       state: latest
+
 ````
 
