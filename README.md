@@ -727,3 +727,91 @@ ansible-playbook --ask-become-pass remove_mariadb.yaml
 ansible-playbook --ask-become-pass remove_samba.yaml
 ````
 
+playbook site_copying_a_file.yaml que además de instalar un paquete (apache2) también copia un fichero (index.html) en los targets
+
+````
+ - hosts: all
+   become: true
+   pre_tasks:
+ 
+   - name: install updates (Fedora)
+     tags: always
+     dnf:
+       update_only: yes
+       update_cache: yes
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install updates (Ubuntu)
+     tags: always
+     apt:
+       upgrade: dist
+       update_cache: yes
+     when: ansible_distribution == "Ubuntu"
+ 
+ 
+ - hosts: web_servers
+   become: true
+   tasks:
+ 
+   - name: install httpd package (Fedora)
+     tags: apache,fedora,httpd
+     dnf:
+       name:
+         - httpd
+         - php
+       state: latest
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install apache2 package (Ubuntu)
+     tags: apache,apache2,ubuntu
+     apt:
+       name:
+         - apache2
+         - libapache2-mod-php
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+   - name: copy html file for site
+     tags: apache,apache,apache2,httpd
+     copy:
+       src: default_site.html
+       dest: /var/www/html/index.html
+       owner: root
+       group: root
+       mode: 0644
+ 
+ - hosts: db_servers
+   become: true
+   tasks:
+ 
+   - name: install mariadb server package (Fedora)
+     tags: fedora,db,mariadb
+     dnf:
+       name: mariadb
+       state: latest
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install mariadb server
+     tags: db,mariadb,ubuntu
+     apt:
+       name: mariadb-server
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: file_servers
+   tags: samba
+   become: true
+   tasks:
+ 
+   - name: install samba package
+     tags: samba
+     package:
+       name: samba
+       state: latest
+
+````
+
+````
+ansible-playbook --ask-become-pass -i inventory_with_groups site_copying_a_file.yaml
+````
+
