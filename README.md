@@ -1021,3 +1021,243 @@ pequeña modificación a site_workstations.yaml para que installe dessde interne
 
 ````
 
+añadido playbook site_launching_services.yaml que además de instalar el servidor web en la máquina Fedora, arraca el servicio. Esto no es necesario en las máquinas Ubuntu, pero de este modo automatizamos también el inicio del servicio httpd de Fedora.
+
+````
+ - hosts: all
+   become: true
+   pre_tasks:
+ 
+   - name: install updates (Fedora)
+     tags: always
+     dnf:
+       update_only: yes
+       update_cache: yes
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install updates (Ubuntu)
+     tags: always
+     apt:
+       upgrade: dist
+       update_cache: yes
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: workstations
+   become: true
+   tasks:
+ 
+   - name: install unzip
+     package:
+       name: unzip
+ 
+   - name: install terraform
+     unarchive:
+       src: https://releases.hashicorp.com/terraform/0.12.28/terraform_0.12.28_linux_amd64.zip
+       dest: /usr/local/bin
+       remote_src: yes
+       mode: 0755
+       owner: root
+       group: root
+ 
+ - hosts: web_servers
+   become: true
+   tasks:
+ 
+   - name: install httpd package (Fedora)
+     tags: apache,fedora,httpd
+     dnf:
+       name:
+         - httpd
+         - php
+       state: latest
+     when: ansible_distribution == "Fedora"
+ 
+   - name: start and enable httpd (Fedora)
+     tags: apache,fedora,httpd
+     service:
+       name: httpd
+       state: started
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install apache2 package (Ubuntu)
+     tags: apache,apache2,ubuntu
+     apt:
+       name:
+         - apache2
+         - libapache2-mod-php
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+   - name: copy html file for site
+     tags: apache,apache,apache2,httpd
+     copy:
+       src: default_site.html
+       dest: /var/www/html/index.html
+       owner: root
+       group: root
+       mode: 0644
+ 
+ - hosts: db_servers
+   become: true
+   tasks:
+ 
+   - name: install mariadb server package (Fedora)
+     tags: fedora,db,mariadb
+     dnf:
+       name: mariadb
+       state: latest
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install mariadb server
+     tags: db,mariadb,ubuntu
+     apt:
+       name: mariadb-server
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: file_servers
+   tags: samba
+   become: true
+   tasks:
+ 
+   - name: install samba package
+     tags: samba
+     package:
+       name: samba
+       state: latest
+````
+
+````
+ansible-playbook --ask-become-pass site_launching_services.yaml -i inventory_with_groups
+````
+
+* por defecto Fedora no tiene el puerto 80 abierto al exterior, por lo que aunque en el playbook se levante el servicio httpd sigue siendo necesario logarse en la máquina fedora y ejecutar el siguiente comando para exponer el puerto 80
+
+````
+sudo firewall-cmd --add-port=80/tcp
+````
+
+* esta version del playbook site_launching_services.yaml automatiza los pasos manuales a los que obligaba la anterior version, o sea, que abre el puerto 80 y recarga la configuración del firewall de Fedora
+
+````
+ - hosts: all
+   become: true
+   pre_tasks:
+ 
+   - name: install updates (Fedora)
+     tags: always
+     dnf:
+       update_only: yes
+       update_cache: yes
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install updates (Ubuntu)
+     tags: always
+     apt:
+       upgrade: dist
+       update_cache: yes
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: workstations
+   become: true
+   tasks:
+ 
+   - name: install unzip
+     package:
+       name: unzip
+ 
+   - name: install terraform
+     unarchive:
+       src: https://releases.hashicorp.com/terraform/0.12.28/terraform_0.12.28_linux_amd64.zip
+       dest: /usr/local/bin
+       remote_src: yes
+       mode: 0755
+       owner: root
+       group: root
+ 
+ - hosts: web_servers
+   become: true
+   tasks:
+ 
+   - name: install httpd package (Fedora)
+     tags: apache,fedora,httpd
+     dnf:
+       name:
+         - httpd
+         - php
+       state: latest
+     when: ansible_distribution == "Fedora"
+ 
+   - name: start and enable httpd (Fedora)
+     tags: apache,fedora,httpd
+     service:
+       name: httpd
+       state: started
+       enabled: yes
+     when: ansible_distribution == "Fedora"
+
+   - name: Add port 80/tcp to firewalld (open port 80 on Fedora target)
+     tags: httpd
+     firewalld:
+       port: 80/tcp
+       permanent: true
+       state: enabled
+     when: ansible_distribution == "Fedora"
+       
+   - name: Reload Fedora firewalld
+     tags: httpd 
+     systemd:
+       name: firewalld
+       state: restarted
+     when: ansible_distribution == "Fedora"
+
+   - name: install apache2 package (Ubuntu)
+     tags: apache,apache2,ubuntu
+     apt:
+       name:
+         - apache2
+         - libapache2-mod-php
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+   - name: copy html file for site
+     tags: apache,apache,apache2,httpd
+     copy:
+       src: default_site.html
+       dest: /var/www/html/index.html
+       owner: root
+       group: root
+       mode: 0644
+ 
+ - hosts: db_servers
+   become: true
+   tasks:
+ 
+   - name: install mariadb server package (Fedora)
+     tags: fedora,db,mariadb
+     dnf:
+       name: mariadb
+       state: latest
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install mariadb server
+     tags: db,mariadb,ubuntu
+     apt:
+       name: mariadb-server
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: file_servers
+   tags: samba
+   become: true
+   tasks:
+ 
+   - name: install samba package
+     tags: samba
+     package:
+       name: samba
+       state: latest
+
+````
+
+

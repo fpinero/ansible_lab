@@ -1,7 +1,8 @@
 [web_servers]
 ansible@192.168.1.180
 ansible@192.168.1.86
- 
+ansible@192.168.1.189 
+
 [db_servers]
 ansible@192.168.1.184
 
