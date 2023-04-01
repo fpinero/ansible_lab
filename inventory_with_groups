@@ -7,3 +7,7 @@ ansible@192.168.1.184
 
 [file_servers]
 ansible@192.168.1.189
+
+[workstations]
+fpinero@192.168.1.95
+
