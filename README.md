@@ -591,3 +591,139 @@ añadido playbook site4.yaml que añade una task para instalar un servidor de ar
 
 ````
 
+playbook site_with_tags.yaml que incluye tags para sólo contactar con los targets que estén bajo ese tag, hasta ahora los playbooks que teníamos contactaban con todos los targets o con todos los que pertenecian a un grupo y sólo actuaban si la distro era la que indicabamos en el condicional.
+
+````
+ - hosts: all
+   become: true
+   pre_tasks:
+ 
+   - name: install updates (Fedora)
+     tags: always
+     dnf:
+       update_only: yes
+       update_cache: yes
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install updates (Ubuntu)
+     tags: always
+     apt:
+       upgrade: dist
+       update_cache: yes
+     when: ansible_distribution == "Ubuntu"
+ 
+ 
+ - hosts: web_servers
+   become: true
+   tasks:
+ 
+   - name: install httpd package (Fedora)
+     tags: apache,fedora,httpd
+     dnf:
+       name:
+         - httpd
+         - php
+       state: latest
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install apache2 package (Ubuntu)
+     tags: apache,apache2,ubuntu
+     apt:
+       name:
+         - apache2
+         - libapache2-mod-php
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: db_servers
+   become: true
+   tasks:
+ 
+   - name: install mariadb server package (Fedora)
+     tags: fedora,db,mariadb
+     dnf:
+       name: mariadb
+       state: latest
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install mariadb server
+     tags: db,mariadb,ubuntu
+     apt:
+       name: mariadb-server
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: file_servers
+   tags: samba
+   become: true
+   tasks:
+ 
+   - name: install samba package
+     tags: samba
+     package:
+       name: samba
+       state: latest
+````
+
+comando para listar los tags disponibles en un playbook
+
+````
+ansible-playbook --list-tags site_with_tags.yaml
+````
+
+ejemplos del uso de los tags para sólo contactar con los targets que estén bajo dicho tag
+
+````
+ansible-playbook --tags db --ask-become-pass site_with_tags.yaml -i inventory_with_groups
+ansible-playbook --tags fedora --ask-become-pass site_with_tags.yaml -i inventory_with_groups
+ansible-playbook --tags apache --ask-become-pass site_with_tags.yaml -i inventory_with_groups
+ansible-playbook --tags `"apache,fedora" --ask-become-pass site_with_tags.yaml -i inventory_with_groups
+````
+
+añadido playbooks para eliminar mariadb y samba de los targets
+* remove_mariadb.yaml 
+````
+- hosts: all
+  become: true
+  tasks:
+
+  - name: remove maiadb package Ubuntu
+    apt:
+      name: mariadb
+      state: absent
+    when: ansible_distribution == "Ubuntu"
+
+  - name: remove mariadb package Fedora
+    dnf:
+      name: mariadb-server
+      state: absent
+    when: ansible_distribution == "Fedora"
+````
+
+````
+ansible-playbook --ask-become-pass remove_mariadb.yaml 
+````
+
+* remove_samba.yaml
+````
+- hosts: all
+  become: true
+  tasks:
+
+  - name: remove maiadb package Ubuntu
+    apt:
+      name: samba
+      state: absent
+    when: ansible_distribution == "Ubuntu"
+
+  - name: remove mariadb package Fedora
+    dnf:
+      name: samba
+      state: absent
+    when: ansible_distribution == "Fedora"
+````
+
+````
+ansible-playbook --ask-become-pass remove_samba.yaml
+````
+

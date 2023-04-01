@@ -1,0 +1,19 @@
+---
+
+- hosts: all
+  become: true
+  tasks:
+
+  - name: remove maiadb package Ubuntu
+    apt:
+      name: samba
+      state: absent
+    when: ansible_distribution == "Ubuntu"
+
+  - name: remove mariadb package Fedora
+    dnf:
+      name: samba
+      state: absent
+    when: ansible_distribution == "Fedora"
+
+
