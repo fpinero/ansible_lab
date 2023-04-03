@@ -2006,4 +2006,219 @@ de este modo queda el playbook site_not_asking_pwd.yaml que no añade el usuario
 ```
 ansible-playbook site_not_asking_pwd.yaml  -i inventory_with_groups
 ```
+playbook site_with_roles.yaml que ayuda a que nuestros playbooks sean menos desordenados
+
+````
+---
+ 
+ - hosts: all
+   become: true
+   pre_tasks:
+ 
+   - name: update repository index (CentOS)
+     tags: always
+     dnf:
+       update_cache: yes
+     changed_when: false
+     when: ansible_distribution == "CentOS"
+ 
+   - name: update repository index (Ubuntu)
+     tags: always
+     apt:
+       update_cache: yes
+     changed_when: false
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: all
+   become: true
+   roles:
+     - base
+    
+ - hosts: workstations
+   become: true
+   roles:
+     - workstations
+ 
+ - hosts: web_servers
+   become: true
+   roles:
+     - web_servers
+ 
+ - hosts: db_servers
+   become: true
+   roles:
+     - db_servers
+ 
+ - hosts: file_servers
+   become: true
+   roles:
+     - file_servers
+````
+
+este playbook no se puede ejecutar hasta que no creemos el directorio roles y dentro de él los subdirectorios de los roles y dentro de cada uno de ellos otro  subdirectorio llamado tasks
+
+```
+mkdir roles
+```
+
+````
+cd roles
+mkdir base
+mkdir db_servers
+mkdir file_servers
+mkdir web_servers
+mkdir workstations
+````
+
+````
+cd <role_name>
+mkdir tasks
+````
+
+creemos dentro del directorio roles/base/tasks el fichero base.yaml conteniendo los datos del usuario a utilizar en los playbooks
+
+````
+- name: add ssh key for simone
+     authorized_key:
+       user: simone
+       key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAe7/ofWLNBq3+fRn3UmgAizdicLs9vcS4Oj8VSOD1S/ ansible"
+````
+
+creemeos el fichero main.yaml en cada uno de los otros directorios tasks de cada uno de los roles con lo que queramos que haga ese playbook
+
+````
+vim ./db_servers/tasks/main.yaml
+````
+
+````
+- name: install mariadb server package (Fedora)
+   tags: fedora,db,mariadb
+   dnf:
+     name: mariadb
+     state: latest
+   when: ansible_distribution == "Fedora"
+ 
+ - name: install mariadb server
+   tags: db,mariadb,ubuntu
+   apt:
+     name: mariadb-server
+     state: latest
+   when: ansible_distribution == "Ubuntu"
+````
+
+````
+vim ./file_servers/tasks/main.yaml
+````
+
+````
+- name: install samba package
+   tags: samba
+   package:
+     name: samba
+     state: latest
+````
+
+````
+vim ./workstations/tasks/main.yaml
+````
+
+````
+- name: install unzip
+   package:
+     name: unzip
+ 
+- name: install terraform
+  unarchive:
+    src: https://releases.hashicorp.com/terraform/1.4.4/terraform_1.4.4_linux_amd64.zip
+    dest: /usr/local/bin
+    remote_src: yes
+    mode: 0755
+    owner: root
+    group: root
+````
+
+````
+vim ./web_servers/tasks/main.yaml
+````
+
+````
+- name: install httpd package (Fedora)
+   tags: apache,fedora,httpd
+   dnf:
+     name:
+       - httpd
+       - php
+     state: latest
+   when: ansible_distribution == "Fedora"
+ 
+- name: start and enable httpd (Fedora)
+  tags: apache,fedora,httpd
+  service:
+    name: httpd
+   state: started
+    enabled: yes
+  when: ansible_distribution == "Fedora"
+ 
+- name: install apache2 package (Ubuntu)
+  tags: apache,apache2,ubuntu
+  apt:
+    name:
+      - apache2
+      - libapache2-mod-php
+    state: latest
+  when: ansible_distribution == "Ubuntu"
+ 
+- name: change e-mail address for admin
+  tags: apache,fedora,httpd
+  lineinfile:
+    path: /etc/httpd/conf/httpd.conf
+    regexp: '^ServerAdmin'
+    line: ServerAdmin somebody@somewhere.net
+  when: ansible_distribution == "Fedora"
+  register: httpd
+ 
+- name: restart httpd (Fedora)
+  tags: apache,fedora,httpd
+  service:
+    name: httpd
+    state: restarted
+  when: httpd.changed    
+ 
+- name: copy html file for site
+  tags: apache,apache,apache2,httpd
+  copy:
+    src: default_site.html
+    dest: /var/www/html/index.html
+    owner: root
+    group: root
+    mode: 0644
+
+````
+
+así queda la estructura sedinitiva de roles
+
+````
+roles
+├── base
+│   └── tasks
+│       └── main.yaml
+├── db_servers
+│   └── tasks
+│       └── main.yaml
+├── file_servers
+│   └── tasks
+│       └── main.yaml
+├── web_servers
+│   ├── files
+│   │   └── default_site.html
+│   └── tasks
+│       └── main.yaml
+└── workstations
+    └── tasks
+        └── main.yaml
+````
+
+````
+ansible-playbook site_with_roles.yaml -i inventory_with_groups
+````
 
