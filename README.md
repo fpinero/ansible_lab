@@ -2092,18 +2092,18 @@ vim ./db_servers/tasks/main.yaml
 
 ````
 - name: install mariadb server package (Fedora)
-   tags: fedora,db,mariadb
-   dnf:
-     name: mariadb
-     state: latest
-   when: ansible_distribution == "Fedora"
+  tags: fedora,db,mariadb
+  dnf:
+    name: mariadb
+    state: latest
+  when: ansible_distribution == "Fedora"
  
- - name: install mariadb server
-   tags: db,mariadb,ubuntu
-   apt:
-     name: mariadb-server
-     state: latest
-   when: ansible_distribution == "Ubuntu"
+- name: install mariadb server
+  tags: db,mariadb,ubuntu
+  apt:
+    name: mariadb-server
+    state: latest
+  when: ansible_distribution == "Ubuntu"
 ````
 
 ````
@@ -2124,17 +2124,17 @@ vim ./workstations/tasks/main.yaml
 
 ````
 - name: install unzip
-   package:
-     name: unzip
+  package:
+    name: unzip
  
 - name: install terraform
   unarchive:
-    src: https://releases.hashicorp.com/terraform/1.4.4/terraform_1.4.4_linux_amd64.zip
-    dest: /usr/local/bin
-    remote_src: yes
-    mode: 0755
-    owner: root
-    group: root
+   src: https://releases.hashicorp.com/terraform/1.4.4/terraform_1.4.4_linux_amd64.zip
+   dest: /usr/local/bin
+   remote_src: yes
+   mode: 0755
+   owner: root
+   group: root
 ````
 
 ````
@@ -2143,20 +2143,20 @@ vim ./web_servers/tasks/main.yaml
 
 ````
 - name: install httpd package (Fedora)
-   tags: apache,fedora,httpd
-   dnf:
-     name:
-       - httpd
-       - php
-     state: latest
-   when: ansible_distribution == "Fedora"
+  tags: apache,fedora,httpd
+  dnf:
+    name:
+      - httpd
+      - php
+    state: latest
+  when: ansible_distribution == "Fedora"
  
 - name: start and enable httpd (Fedora)
   tags: apache,fedora,httpd
   service:
-    name: httpd
+   name: httpd
    state: started
-    enabled: yes
+   enabled: yes
   when: ansible_distribution == "Fedora"
  
 - name: install apache2 package (Ubuntu)
