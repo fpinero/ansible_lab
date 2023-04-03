@@ -4,43 +4,28 @@
    become: true
    pre_tasks:
  
-   - name: install updates (Fedora)
+   - name: update repository index (Fedora)
      tags: always
      dnf:
-       update_only: yes
        update_cache: yes
+     changed_when: false
      when: ansible_distribution == "Fedora"
  
-   - name: install updates (Ubuntu)
+   - name: update repository index (Ubuntu)
      tags: always
      apt:
-       upgrade: dist
        update_cache: yes
+     changed_when: false
      when: ansible_distribution == "Ubuntu"
  
  - hosts: all
    become: true
    tasks:
  
-   - name: create simone user
-     user:
-       name: simone
-       groups: root
-     
    - name: add ssh key for simone
-     tags: always
      authorized_key:
        user: simone
        key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILDhUqqqHvSQ6z+v5SuqkZ/voHv9ksxoMVo9sC3MFcU6 ansible_lab"
-         
-   - name: add sudoers file for simone
-     tags: always
-     copy:
-       src: sudoer_simone
-       dest: /etc/sudoers.d/simone
-       owner: root
-       group: root
-       mode: 0440
  
  - hosts: workstations
    become: true
@@ -71,7 +56,7 @@
          - php
        state: latest
      when: ansible_distribution == "Fedora"
-   
+ 
    - name: start and enable httpd (Fedora)
      tags: apache,fedora,httpd
      service:
@@ -97,7 +82,7 @@
        line: ServerAdmin somebody@somewhere.net
      when: ansible_distribution == "Fedora"
      register: httpd
-  
+ 
    - name: restart httpd (Fedora)
      tags: apache,fedora,httpd
      service:

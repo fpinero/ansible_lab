@@ -1630,4 +1630,372 @@ playbook site_add_an_user.yaml que añade el usuario simene en todos los targets
 ````
 ansible-playbook --ask-become-pass site_add_an_user.yaml -i inventory_with_groups
 ````
+ playbook site_add_an_user_and_pubkey.yaml que además de crear el usuario simone añade la clave pública a las autorize_key para poder realizar login con dicho usuario en los targets
+
+````
+---
+ 
+ - hosts: all
+   become: true
+   pre_tasks:
+ 
+   - name: install updates (Fedora)
+     tags: always
+     dnf:
+       update_only: yes
+       update_cache: yes
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install updates (Ubuntu)
+     tags: always
+     apt:
+       upgrade: dist
+       update_cache: yes
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: all
+   become: true
+   tasks:
+ 
+   - name: create simone user
+     user:
+       name: simone
+       groups: root
+     
+   - name: add ssh key for simone
+     tags: always
+     authorized_key:
+       user: simone
+       key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILDhUqqqHvSQ6z+v5SuqkZ/voHv9ksxoMVo9sC3MFcU6 ansible_lab"
+         
+   - name: add  file for simone
+     tags: always
+     copy:
+       src: sudoer_simone
+       dest: /etc/.d/simone
+       owner: root
+       group: root
+       mode: 0440
+ 
+ - hosts: workstations
+   become: true
+   tasks:
+ 
+   - name: install unzip
+     package:
+       name: unzip
+ 
+   - name: install terraform
+     unarchive:
+       src: https://releases.hashicorp.com/terraform/1.4.4/terraform_1.4.4_linux_amd64.zip
+       dest: /usr/local/bin
+       remote_src: yes
+       mode: 0755
+       owner: root
+       group: root
+ 
+ - hosts: web_servers
+   become: true
+   tasks:
+ 
+   - name: install httpd package (Fedora)
+     tags: apache,fedora,httpd
+     dnf:
+       name:
+         - httpd
+         - php
+       state: latest
+     when: ansible_distribution == "Fedora"
+   
+   - name: start and enable httpd (Fedora)
+     tags: apache,fedora,httpd
+     service:
+       name: httpd
+       state: started
+       enabled: yes
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install apache2 package (Ubuntu)
+     tags: apache,apache2,ubuntu
+     apt:
+       name:
+         - apache2
+         - libapache2-mod-php
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+   - name: change e-mail address for admin
+     tags: apache,fedora,httpd
+     lineinfile:
+       path: /etc/httpd/conf/httpd.conf
+       regexp: '^ServerAdmin'
+       line: ServerAdmin somebody@somewhere.net
+     when: ansible_distribution == "Fedora"
+     register: httpd
+  
+   - name: restart httpd (Fedora)
+     tags: apache,fedora,httpd
+     service:
+       name: httpd
+       state: restarted
+     when: httpd.changed    
+ 
+   - name: copy html file for site
+     tags: apache,apache,apache2,httpd
+     copy:
+       src: default_site.html
+       dest: /var/www/html/index.html
+       owner: root
+       group: root
+       mode: 0644
+ 
+ - hosts: db_servers
+   become: true
+   tasks:
+ 
+   - name: install mariadb server package (Fedora)
+     tags: fedora,db,mariadb
+     dnf:
+       name: mariadb
+       state: latest
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install mariadb server
+     tags: db,mariadb,ubuntu
+     apt:
+       name: mariadb-server
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: file_servers
+   tags: samba
+   become: true
+   tasks:
+ 
+   - name: install samba package
+     tags: samba
+     package:
+       name: samba
+       state: latest
+
+````
+
+````
+ansible-playbook --ask-become-pass site_add_an_user_and_pubkey.yaml -i inventory_with_groups
+````
+
+se puede comprobar que se ha creado el ususario simone y que acepta la clave ssh haciendo loging a cualquiera de los targets, por ejemplo al Fedora
+
+````
+ssh -i ~/.ssh/ansible_lab simone@192.168.1.189
+````
+
+añadiendo a ansible.cfg el nombre del usuario a emplear en los targets y dado que ya estaba añadida la key a utilizar para realizar ssh en ellos, se puede prescindir de incluir --ask-become-pass an ejecutar ansible-playbook y no tener que introducir la contraseña del usuario cada vez que se lanza el playbook, lo cual automatiza aún más el proceso.
+
+````
+[defaults]
+inventory = inventory
+private_key_file = ~/.ssh/ansible_lab
+remote_user = simone
+````
+
+indicamos el usuario <b>simone</b> porque en el playbook lo añadimos como usuario similar a root al copiar el fichero sudoer_simone donde se le indicaba que no solicitara password, siempre debía validarse con la key que también añadimos.
+
+````
+simone ALL=(ALL) NOPASSWD: ALL
+````
+
+````
+ansible-playbook site_add_an_user_and_pubkey.yaml  -i inventory_with_groups
+````
+lo que acabamos de realizar de ejecutar un playbook sin que pida la contraseña de un usuario con privilegios de root ha funcionado porque anteriormente ejecutamos un playbook que creaba dicho usuario y añadía sy ssh key, pero no hubiese funcionado si este fuera el primer playbook que se ejecuta en los targets. Por ello, el primer playbook debe ser una platilla inicial que cree los pre-requisitos necesarios en los targets para que posteriormente ejecutemos los playbook sin tener que introducir la contraseña del usuario. Para ello se crea un primer playbook llamado bootstrap.yaml con lo esencial para crear el usuario y de paso actualizar el sistema.
+
+````
+---
+ 
+ - hosts: all
+   become: true
+   pre_tasks:
+ 
+   - name: install updates (CentOS)
+     tags: always
+     dnf:
+       update_only: yes
+       update_cache: yes
+     when: ansible_distribution == "CentOS"
+ 
+   - name: install updates (Ubuntu)
+     tags: always
+     apt:
+       upgrade: dist
+       update_cache: yes
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: all
+   become: true
+   tasks:
+ 
+   - name: create simone user
+     user:
+       name: simone
+       groups: root
+ 
+   - name: add ssh key for simone
+     authorized_key:
+       user: simone
+       key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAe7/ofWLNBq3+fRn3UmgAizdicLs9vcS4Oj8VSOD1S/ ansible"
+      
+   - name: add sudoers file for simone
+     copy:
+       src: sudoer_simone
+       dest: /etc/sudoers.d/simone
+       owner: root
+       group: root
+       mode: 0440
+````
+
+````
+ansible-playbook --ask-become-pass bootstrap.yaml -i inventory_with_groups
+````
+
+del resto de playbooks debe eliminarse la parte que crea el usuario, suble la key y añade el usuario a sudoers.d
+
+de este modo queda el playbook site_not_asking_pwd.yaml que no añade el usuario simone al grupo de root y subiendo su key cada vez que se ejecuta
+
+````
+---
+ 
+ - hosts: all
+   become: true
+   pre_tasks:
+ 
+   - name: update repository index (Fedora)
+     tags: always
+     dnf:
+       update_cache: yes
+     changed_when: false
+     when: ansible_distribution == "Fedora"
+ 
+   - name: update repository index (Ubuntu)
+     tags: always
+     apt:
+       update_cache: yes
+     changed_when: false
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: all
+   become: true
+   tasks:
+ 
+   - name: add ssh key for simone
+     authorized_key:
+       user: simone
+       key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILDhUqqqHvSQ6z+v5SuqkZ/voHv9ksxoMVo9sC3MFcU6 ansible_lab"
+ 
+ - hosts: workstations
+   become: true
+   tasks:
+ 
+   - name: install unzip
+     package:
+       name: unzip
+ 
+   - name: install terraform
+     unarchive:
+       src: https://releases.hashicorp.com/terraform/1.4.4/terraform_1.4.4_linux_amd64.zip
+       dest: /usr/local/bin
+       remote_src: yes
+       mode: 0755
+       owner: root
+       group: root
+ 
+ - hosts: web_servers
+   become: true
+   tasks:
+ 
+   - name: install httpd package (Fedora)
+     tags: apache,fedora,httpd
+     dnf:
+       name:
+         - httpd
+         - php
+       state: latest
+     when: ansible_distribution == "Fedora"
+ 
+   - name: start and enable httpd (Fedora)
+     tags: apache,fedora,httpd
+     service:
+       name: httpd
+       state: started
+       enabled: yes
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install apache2 package (Ubuntu)
+     tags: apache,apache2,ubuntu
+     apt:
+       name:
+         - apache2
+         - libapache2-mod-php
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+   - name: change e-mail address for admin
+     tags: apache,fedora,httpd
+     lineinfile:
+       path: /etc/httpd/conf/httpd.conf
+       regexp: '^ServerAdmin'
+       line: ServerAdmin somebody@somewhere.net
+     when: ansible_distribution == "Fedora"
+     register: httpd
+ 
+   - name: restart httpd (Fedora)
+     tags: apache,fedora,httpd
+     service:
+       name: httpd
+       state: restarted
+     when: httpd.changed    
+ 
+   - name: copy html file for site
+     tags: apache,apache,apache2,httpd
+     copy:
+       src: default_site.html
+       dest: /var/www/html/index.html
+       owner: root
+       group: root
+       mode: 0644
+ 
+ - hosts: db_servers
+   become: true
+   tasks:
+ 
+   - name: install mariadb server package (Fedora)
+     tags: fedora,db,mariadb
+     dnf:
+       name: mariadb
+       state: latest
+     when: ansible_distribution == "Fedora"
+ 
+   - name: install mariadb server
+     tags: db,mariadb,ubuntu
+     apt:
+       name: mariadb-server
+       state: latest
+     when: ansible_distribution == "Ubuntu"
+ 
+ - hosts: file_servers
+   tags: samba
+   become: true
+   tasks:
+ 
+   - name: install samba package
+     tags: samba
+     package:
+       name: samba
+       state: latest
+
+````
+
+```
+ansible-playbook site_not_asking_pwd.yaml  -i inventory_with_groups
+```
 
