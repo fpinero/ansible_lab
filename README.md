@@ -2221,4 +2221,82 @@ roles
 ````
 ansible-playbook site_with_roles.yaml -i inventory_with_groups
 ````
+se crea el direcorio host_vars para almacenar el fichero de variables a utilizar en este ejemplo en los targets web_servers
+
+````
+mkdir host_vars 
+````
+
+y en dicho directorio se crea un fichero yaml con el nombre de cada uno de los targets con los que trabajamos
+
+````
+ansible@192.168.1.180.yaml
+ansible@192.168.1.184.yaml
+ansible@192.168.1.189.yaml
+ansible@192.168.1.86.yaml
+````
+
+todos los ficheros son iguales excepto el ansible@192.168.1.189.yaml que tiene las variables ajustadas a Fedora
+
+````
+apache_package_name: httpd
+apache_service: httpd
+php_package_name: php
+````
+
+restos de ficheros así
+
+````
+apache_package_name: 'apache2'
+apache_service: 'apache2'
+php_package_name: 'libapache2-mod-php'
+````
+
+encerrar el valor de las valiables con la comilla simple es opcional
+
+el fichero roles/web_servers/tasks/main.yaml cambia a este formato para hacer uso de las variables definidas
+
+````
+- name: install apache and php packages
+  tags: apache,httpd,php
+  package:
+    name:
+      - "{{ apache_package_name }}"
+      - "{{ php_package_name }}" 
+    state: latest
+ 
+- name: start and enable apache service
+  tags: apache,httpd
+  service:
+    name:  "{{ apache_service }}"
+    state: started
+    enabled: yes
+ 
+- name: change e-mail address for admin
+  tags: apache,fedora,httpd
+  lineinfile:
+    path: /etc/httpd/conf/httpd.conf
+    regexp: '^ServerAdmin'
+    line: ServerAdmin somebody@somewhere.net
+  when: ansible_distribution == "Fedora"
+  register: apache
+
+- name: restart httpd
+  tags: apache,httpd
+  service:
+    name: "{{ apache_service }}"
+    state: restarted
+  when: apache.changed
+ 
+- name: copy html file for site
+  tags: apache,apache,apache2,httpd
+  copy:
+    src: default_site.html
+    dest: /var/www/html/index.html
+    owner: root
+    group: root
+    mode: 0644
+
+````
+
 

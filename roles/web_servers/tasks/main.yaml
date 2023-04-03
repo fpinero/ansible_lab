@@ -1,28 +1,17 @@
-- name: install httpd package (Fedora)
-  tags: apache,fedora,httpd
-  dnf:
+- name: install apache and php packages
+  tags: apache,httpd,php
+  package:
     name:
-      - httpd
-      - php
+      - "{{ apache_package_name }}"
+      - "{{ php_package_name }}" 
     state: latest
-  when: ansible_distribution == "Fedora"
  
-- name: start and enable httpd (Fedora)
-  tags: apache,fedora,httpd
+- name: start and enable apache service
+  tags: apache,httpd
   service:
-   name: httpd
-   state: started
-   enabled: yes
-  when: ansible_distribution == "Fedora"
- 
-- name: install apache2 package (Ubuntu)
-  tags: apache,apache2,ubuntu
-  apt:
-    name:
-      - apache2
-      - libapache2-mod-php
-    state: latest
-  when: ansible_distribution == "Ubuntu"
+    name:  "{{ apache_service }}"
+    state: started
+    enabled: yes
  
 - name: change e-mail address for admin
   tags: apache,fedora,httpd
@@ -31,14 +20,14 @@
     regexp: '^ServerAdmin'
     line: ServerAdmin somebody@somewhere.net
   when: ansible_distribution == "Fedora"
-  register: httpd
- 
-- name: restart httpd (Fedora)
-  tags: apache,fedora,httpd
+  register: apache
+
+- name: restart httpd
+  tags: apache,httpd
   service:
-    name: httpd
+    name: "{{ apache_service }}"
     state: restarted
-  when: httpd.changed    
+  when: apache.changed
  
 - name: copy html file for site
   tags: apache,apache,apache2,httpd
@@ -48,4 +37,3 @@
     owner: root
     group: root
     mode: 0644
-
