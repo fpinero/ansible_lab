@@ -1799,10 +1799,18 @@ private_key_file = ~/.ssh/ansible_lab
 remote_user = simone
 ````
 
-indicamos el usuario <b>simone</b> porque en el playbook lo añadimos como usuario similar a root al copiar el fichero sudoer_simone donde se le indicaba que no solicitara password, siempre debía validarse con la key que también añadimos.
+indicamos el usuario </b>simone</b> porque en el playbook lo añadimos como usuario similar a root al copiar el fichero sudoer_simone donde se le indicaba que no solicitara password e indicacomos que pertenecía al propietario root y grupo root, siempre debía validarse con la key que también añadimos.
 
 ````
 simone ALL=(ALL) NOPASSWD: ALL
+````
+
+````
+src: sudoer_simone
+       dest: /etc/.d/simone
+       owner: root
+       group: root
+       mode: 0440
 ````
 
 ````
