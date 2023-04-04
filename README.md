@@ -2244,7 +2244,7 @@ apache_service: httpd
 php_package_name: php
 ````
 
-restos de ficheros así
+resto de ficheros así
 
 ````
 apache_package_name: 'apache2'
@@ -2373,4 +2373,109 @@ RUNNING HANDLER [web_servers : restart_apache] *********************************
 changed: [ansible@192.168.1.189]
 
 ````
+# NO HACER NADA DE LO SIGUIENTE PORQUE TOCA EL SSHD_CONFIG Y SE LÍA PARDA PARA LUEGO PODER HACER LOGIN EN LOS SERVERS. NO SE DEBE HACER GRANDES CAMBIOS EN EL SSHD_CONFIG
+
+uso de templates, en este caso nos va a ser útil suponiendo que cada server tuviese una ssh key diferente para que ansible pueda ejecutar tareas en los targets sin tener que usar el flag de que nos solicite la contraseña de un usuario con permisos de root. Usaremos los templates para poder indicar diferentes ssh keys según el target en cuestión.
+
+````
+cat /etc/ssh/sshd_config
+````
+
+queremos una copia de ese fichero en git, para ello nos movemos al directorio cd roles/base y creamos ahí el directorio templates
+
+´´´´
+cd roles/base
+mkdir templates
+´´´´
+
+nos cambiamos al directior templates y copiamos el ficher sshd_config
+
+````
+cd templates
+cp /etc/ssh/sshd_config sshd_config_ubuntu.j2 
+````
+
+la extensión .j2 es la extensión por defecto a utilizar en los templates de Ansible (jinja2)
+
+ahora copiemos también el fichero sshd_config del target Fedora, lo hacemos desde la máquina Fedora usando sudo
+
+````
+[ansible@fedorasrv01 ssh]$ sudo scp ssh_config fpinero@192.168.1.95:/home/fpinero/ansible_lab/roles/base/templates/sshd_config_fedora.j2
+````
+
+editamos los ficheros sshd_config_ubuntu.j2 y sshd_config_fedora.j2 les añadimos
+
+´´´´
+AllowUsers {{ ssh_users }}
+´´´´
+
+nos movemos al directorio donde tenemos definidas las variables para cada target y les añadimos la definición de la variable
+
+´´´´
+cd host_vars
+vim *
+ssh_users: "ansible, fpinero, simone"   
+ssh_template_file: sshd_config_ubuntu.j2 
+´´´´
+* al fichero de variables de Fedora el nombre del template es sshd_config_fedora.j2
+
+````
+ssh_template_file: sshd_config_fedora.j2 
+````
+
+también añadimo sel fichero de variables para el equipo desde donde ejecutamos ansible porque tenemos una tarea que instala Terraform en él, este caso es el fpinero@192.168.1.95.yaml que contiene la misma info que cualquiera de los ficheros de variables de un target Ubuntu. <br/>
+estos son los ficheros que deben existir en el directorio host_vars
+
+´´´´
+ansible@192.168.1.180.yaml
+ansible@192.168.1.184.yaml
+ansible@192.168.1.189.yaml
+ansible@192.168.1.86.yaml
+fpinero@192.168.1.95.yaml
+´´´´
+
+nos movemos al directorio cd ./roles/base/tasks/ y editamos el main.yaml que tan sólo contiene el usuario y la key a utilizar para conectarnos a los targets sin tener que usar el flag de Ansible para que nos solicite la contraseña de un usuario con permisos de root
+
+````
+vim main.yaml
+````
+
+y le añadimos una tarea nueva
+
+´´´´
+- name: add ssh key for simone
+  authorized_key:
+   user: simone
+   key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAe7/ofWLNBq3+fRn3UmgAizdicLs9vcS4Oj8VSOD1S/ ansible"
+
+- name: generate sshd_config file from temaplate
+  tags: ssh
+  template: 
+    src: "{{ ssh_template_file }}"
+    dest: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart_sshd
+´´´´
+
+creamos en roles/base en directorio handlers para crear el handler que utilizamos en el main.yaml de base que reinicia sshd
+
+´´´´
+mkdir handlers
+´´´´
+
+nos movemos dentro del recién creado directorio handlers y creamos el fichero main.yaml
+
+´´´´
+- name: restart_sshd
+  service:
+    name: sshd
+    state: restarted
+´´´´
+
+´´´´
+ansible-playbook site_with_roles.yaml -i inventory_with_groups
+´´´´
+
 
