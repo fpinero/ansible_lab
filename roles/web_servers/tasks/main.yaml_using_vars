@@ -18,10 +18,17 @@
   lineinfile:
     path: /etc/httpd/conf/httpd.conf
     regexp: '^ServerAdmin'
-    line: ServerAdmin somebody@somewhere.com
+    line: ServerAdmin somebody@somewhere.net
   when: ansible_distribution == "Fedora"
-  notify: restart_apache
+  register: apache
 
+- name: restart httpd
+  tags: apache,httpd
+  service:
+    name: "{{ apache_service }}"
+    state: restarted
+  when: apache.changed
+ 
 - name: copy html file for site
   tags: apache,apache,apache2,httpd
   copy:

@@ -2299,4 +2299,78 @@ el fichero roles/web_servers/tasks/main.yaml cambia a este formato para hacer us
 
 ````
 
+uso de los handlers que sirven para disparar el reinicio de un servicio no basándonos en el uso de variables, ya que si tienes que reiniciar varios servicios en un sólo playbook el estado de la variable puede cambiar dependiendo de la última acción realizada.
+
+el playbook roles/web_servers/tasks/main.yaml con la inclusión de un handler para reiniciar el servicio httpd queda así
+
+````
+- name: install apache and php packages
+  tags: apache,httpd,php
+  package:
+    name:
+      - "{{ apache_package_name }}"
+      - "{{ php_package_name }}" 
+    state: latest
+ 
+- name: start and enable apache service
+  tags: apache,httpd
+  service:
+    name:  "{{ apache_service }}"
+    state: started
+    enabled: yes
+ 
+- name: change e-mail address for admin
+  tags: apache,fedora,httpd
+  lineinfile:
+    path: /etc/httpd/conf/httpd.conf
+    regexp: '^ServerAdmin'
+    line: ServerAdmin somebody@somewhere.net
+  when: ansible_distribution == "Fedora"
+  notify: restart_apache
+
+- name: copy html file for site
+  tags: apache,apache,apache2,httpd
+  copy:
+    src: default_site.html
+    dest: /var/www/html/index.html
+    owner: root
+    group: root
+    mode: 0644
+
+````
+
+creamos el directorio handlers en el directorio web_servers
+
+````
+mkdir ./roles/web_servers/handlers
+````
+
+y en dicho directorio creamos el fichero main.yaml
+
+````
+vim ./roles/web_servers/handlers/main.yaml
+````
+
+con el siguiente contenido
+
+````
+- name: restart_apache
+  service:
+    name: "{{ apache_service }}" 
+    state: restarted
+````
+
+la etiqueta name debe ser igual al valor que le hemos dado en el playbook a la etiqueta notify, en este caso restart_apache
+
+si cambiamos en el yaml la dirección de correo de contacto, por ejemplo cambiando el .net por .com podemos ver cómo se dispara el handler porque ha habido un cambio en la tarea de web_servers: change email address for admin
+
+````
+ansible-playbook site_with_roles.yaml -i inventory_with_groups
+````
+
+````
+RUNNING HANDLER [web_servers : restart_apache] *************************************************************************************
+changed: [ansible@192.168.1.189]
+
+````
 
