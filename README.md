@@ -2373,7 +2373,7 @@ RUNNING HANDLER [web_servers : restart_apache] *********************************
 changed: [ansible@192.168.1.189]
 
 ````
-# NO HACER NADA DE LO SIGUIENTE PORQUE TOCA EL SSHD_CONFIG Y SE LÍA PARDA PARA LUEGO PODER HACER LOGIN EN LOS SERVERS. NO SE DEBE HACER GRANDES CAMBIOS EN EL SSHD_CONFIG
+# NO HACER NADA DE LO SIGUIENTE PORQUE TOCA EL SSHD_CONFIG Y SE LÍA PARDA PARA LUEGO PODER HACER LOGIN EN LOS SERVERS. NO SE DEBEN HACER GRANDES CAMBIOS EN EL SSHD_CONFIG
 
 uso de templates, en este caso nos va a ser útil suponiendo que cada server tuviese una ssh key diferente para que ansible pueda ejecutar tareas en los targets sin tener que usar el flag de que nos solicite la contraseña de un usuario con permisos de root. Usaremos los templates para poder indicar diferentes ssh keys según el target en cuestión.
 
@@ -2383,10 +2383,11 @@ cat /etc/ssh/sshd_config
 
 queremos una copia de ese fichero en git, para ello nos movemos al directorio cd roles/base y creamos ahí el directorio templates
 
-´´´´
+````
 cd roles/base
 mkdir templates
-´´´´
+````
+
 
 nos cambiamos al directior templates y copiamos el ficher sshd_config
 
