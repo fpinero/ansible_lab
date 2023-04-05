@@ -2479,4 +2479,24 @@ nos movemos dentro del recién creado directorio handlers y creamos el fichero m
 ansible-playbook site_with_roles.yaml -i inventory_with_groups
 ´´´´
 
+nuevo playbook site_stress.yaml que instala el paquete stress y ejecuta en todos los targets un stress de la cpu por 10s
+
+````
+---
+ 
+- hosts: all
+  become: true
+  tasks:
+
+    - name: install stress
+      package: 
+        name: stress
+
+    - name: Execute stress
+      command: "stress --cpu 2 --timeout 10s"
+````
+
+````
+ansible-playbook site_stress.yaml -i inventory_with_groups
+````
 

@@ -1,0 +1,14 @@
+---
+ 
+- hosts: all
+  become: true
+  tasks:
+
+    - name: install stress
+      package: 
+        name: stress
+
+    - name: Execute stress
+      command: "stress --cpu 2 --timeout 10s"
+
+ 
